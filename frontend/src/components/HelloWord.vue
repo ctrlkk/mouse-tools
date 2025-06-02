@@ -46,7 +46,7 @@ const CHART_CONFIG = {
 // 响应式状态
 const chartContainerRef = ref<HTMLDivElement>()
 const chartInstance = ref<echarts.ECharts | null>(null)
-const isMonitoring = ref<boolean>(true)
+const isMonitoring = ref<boolean>(false)
 
 // 图表数据状态
 const chartDataPoints = ref<(number | null)[]>(
