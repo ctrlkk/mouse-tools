@@ -45,8 +45,9 @@ const CHART_CONFIG = {
 
 // 响应式状态
 const chartContainerRef = ref<HTMLDivElement>()
-const chartInstance = ref<echarts.ECharts | null>(null)
 const isMonitoring = ref<boolean>(false)
+
+let chartInstance: echarts.ECharts
 
 // 图表数据状态
 const chartDataPoints = ref<(number | null)[]>(
@@ -57,124 +58,115 @@ const currentPollingRate = ref<number>(0)
 // 回报率记录
 const allPollingRates = ref<PollingRateRecord[]>([])
 
-const initializeChart = async (): Promise<void> => {
-    await nextTick()
+const initializeChart = () => {
+    chartInstance = echarts.init(chartContainerRef.value)
 
-    if (!chartContainerRef.value) return
-
-    try {
-        chartInstance.value = echarts.init(chartContainerRef.value)
-
-        const chartOption: EChartsOption = {
-            grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '8%',
-                top: '5%',
-                containLabel: true
+    const chartOption: EChartsOption = {
+        grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '8%',
+            top: '5%',
+            containLabel: true
+        },
+        xAxis: {
+            type: 'category',
+            data: Array.from({ length: CHART_CONFIG.MAX_DATA_POINTS }, (_, index) => index),
+            axisLabel: {
+                show: true,
+                interval: 19,
+                color: '#6b7280',
+                fontSize: 11
             },
-            xAxis: {
-                type: 'category',
-                data: Array.from({ length: CHART_CONFIG.MAX_DATA_POINTS }, (_, index) => index),
-                axisLabel: {
-                    show: true,
-                    interval: 19,
-                    color: '#6b7280',
-                    fontSize: 11
-                },
-                axisLine: {
-                    lineStyle: {
-                        color: '#e5e7eb'
-                    }
-                },
-                axisTick: {
-                    show: false
+            axisLine: {
+                lineStyle: {
+                    color: '#e5e7eb'
                 }
             },
-            yAxis: {
-                type: 'value',
-                min: 0,
-                axisLabel: {
-                    formatter: '{value}Hz',
-                    color: '#6b7280',
-                    fontSize: 11
-                },
-                axisLine: {
-                    lineStyle: {
-                        color: '#e5e7eb'
-                    }
-                },
-                splitLine: {
-                    lineStyle: {
-                        color: '#f3f4f6',
-                        type: 'dashed'
-                    }
+            axisTick: {
+                show: false
+            }
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            axisLabel: {
+                formatter: '{value}Hz',
+                color: '#6b7280',
+                fontSize: 11
+            },
+            axisLine: {
+                lineStyle: {
+                    color: '#e5e7eb'
                 }
             },
-            tooltip: {
-                trigger: 'axis',
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                borderColor: 'transparent',
-                textStyle: {
-                    color: '#ffffff',
-                    fontSize: 12
-                },
-                formatter: (params: any) => {
-                    const dataPoint = params[0]
-                    if (dataPoint?.value === null) return ''
+            splitLine: {
+                lineStyle: {
+                    color: '#f3f4f6',
+                    type: 'dashed'
+                }
+            }
+        },
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            borderColor: 'transparent',
+            textStyle: {
+                color: '#ffffff',
+                fontSize: 12
+            },
+            formatter: (params: any) => {
+                const dataPoint = params[0]
+                if (!dataPoint.value) return ''
 
-                    return `
+                return `
                         <div style="padding: 4px 0;">
                         <div style="margin-bottom: 4px;">
                             <span style="color: #10b981;">●</span> 
-                            <span style="margin-left: 4px;">回报率: ${dataPoint.value}Hz</span>
+                            <span style="margin-left: 4px;">${dataPoint.value}Hz</span>
                         </div>
                         <div style="font-size: 11px; color: #d1d5db;">
-                            时间: ${dayjs().format('HH:mm:ss')}
+                            ${dayjs().format('HH:mm:ss')}
                         </div>
                         </div>
                     `
+            }
+        },
+        series: [{
+            name: '鼠标回报率',
+            type: 'line',
+            data: chartDataPoints.value,
+            smooth: false,
+            symbol: 'circle',
+            symbolSize: 3,
+            lineStyle: {
+                color: '#10b981',
+                width: 2
+            },
+            itemStyle: {
+                color: '#10b981'
+            },
+            areaStyle: {
+                color: {
+                    type: 'linear',
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [
+                        { offset: 0, color: 'rgba(16, 185, 129, 0.3)' },
+                        { offset: 1, color: 'rgba(16, 185, 129, 0.05)' }
+                    ]
                 }
             },
-            series: [{
-                name: '鼠标回报率',
-                type: 'line',
-                data: chartDataPoints.value,
-                smooth: false,
-                symbol: 'circle',
-                symbolSize: 3,
-                lineStyle: {
-                    color: '#10b981',
-                    width: 2
-                },
-                itemStyle: {
-                    color: '#10b981'
-                },
-                areaStyle: {
-                    color: {
-                        type: 'linear',
-                        x: 0,
-                        y: 0,
-                        x2: 0,
-                        y2: 1,
-                        colorStops: [
-                            { offset: 0, color: 'rgba(16, 185, 129, 0.3)' },
-                            { offset: 1, color: 'rgba(16, 185, 129, 0.05)' }
-                        ]
-                    }
-                },
-                connectNulls: false,
-                animation: false
-            }]
-        }
-
-        chartInstance.value.setOption(chartOption)
-
-        window.addEventListener('resize', handleWindowResize)
-
-    } catch (error) {
-        console.error('初始化图表失败:', error)
+            connectNulls: false,
+            animation: false
+        }]
     }
+
+    chartInstance.setOption(chartOption)
+
+    window.addEventListener('resize', handleWindowResize)
 }
 
 /**
@@ -182,34 +174,28 @@ const initializeChart = async (): Promise<void> => {
  * @param newPollingRate 新的回报率值
  */
 const updateChartData = (newPollingRate: number): void => {
-    try {
-        // 数据左移，新数据添加到最右侧
-        for (let i = 0; i < CHART_CONFIG.MAX_DATA_POINTS - 1; i++) {
-            chartDataPoints.value[i] = chartDataPoints.value[i + 1]
-        }
-        chartDataPoints.value[CHART_CONFIG.MAX_DATA_POINTS - 1] = newPollingRate
+    for (let i = 0; i < CHART_CONFIG.MAX_DATA_POINTS - 1; i++) {
+        chartDataPoints.value[i] = chartDataPoints.value[i + 1]
+    }
+    chartDataPoints.value[CHART_CONFIG.MAX_DATA_POINTS - 1] = newPollingRate
 
-        if (chartInstance.value) {
-            chartInstance.value.setOption({
-                series: [{
-                    data: chartDataPoints.value
-                }]
-            }, false)
-        }
+    if (chartInstance) {
+        chartInstance.setOption({
+            series: [{
+                data: chartDataPoints.value
+            }]
+        }, false)
+    }
 
-        currentPollingRate.value = newPollingRate
+    currentPollingRate.value = newPollingRate
 
-        allPollingRates.value.push({
-            rate: newPollingRate,
-            timestamp: Date.now()
-        })
+    allPollingRates.value.push({
+        rate: newPollingRate,
+        timestamp: Date.now()
+    })
 
-        if (allPollingRates.value.length > 1000) {
-            allPollingRates.value = allPollingRates.value.slice(-500)
-        }
-
-    } catch (error) {
-        console.error('更新图表数据失败:', error)
+    if (allPollingRates.value.length > 1000) {
+        allPollingRates.value = allPollingRates.value.slice(-500)
     }
 }
 
@@ -237,21 +223,16 @@ const handleToggleMonitoring = (): void => {
  * 清空所有数据
  */
 const handleClearData = (): void => {
-    try {
-        chartDataPoints.value = new Array(CHART_CONFIG.MAX_DATA_POINTS).fill(null)
-        currentPollingRate.value = 0
-        allPollingRates.value = []
+    chartDataPoints.value = new Array(CHART_CONFIG.MAX_DATA_POINTS).fill(null)
+    currentPollingRate.value = 0
+    allPollingRates.value = []
 
-        if (chartInstance.value) {
-            chartInstance.value.setOption({
-                series: [{
-                    data: chartDataPoints.value
-                }]
-            }, false)
-        }
-
-    } catch (error) {
-        console.error('清空数据失败:', error)
+    if (chartInstance) {
+        chartInstance.setOption({
+            series: [{
+                data: chartDataPoints.value
+            }]
+        }, false)
     }
 }
 
@@ -259,30 +240,19 @@ const handleClearData = (): void => {
  * 处理窗口大小变化
  */
 const handleWindowResize = (): void => {
-    if (chartInstance.value) {
-        chartInstance.value.resize()
+    if (chartInstance) {
+        chartInstance.resize()
     }
 }
 
-onMounted(async () => {
-    try {
-        await initializeChart()
-        handleToggleMonitoring()
-    } catch (error) {
-        console.error('onMounted:', error)
-    }
+onMounted(() => {
+    initializeChart()
+    handleToggleMonitoring()
 })
 
 onUnmounted(() => {
-    try {
-        window.removeEventListener('resize', handleWindowResize)
-        if (chartInstance.value) {
-            chartInstance.value.dispose()
-            chartInstance.value = null
-        }
-    } catch (error) {
-        console.error('onUnmounted:', error)
-    }
+    window.removeEventListener('resize', handleWindowResize)
+    chartInstance?.dispose()
 })
 </script>
 

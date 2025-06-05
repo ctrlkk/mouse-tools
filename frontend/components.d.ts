@@ -12,6 +12,5 @@ declare module 'vue' {
     NButton: typeof import('naive-ui')['NButton']
     NButtonGroup: typeof import('naive-ui')['NButtonGroup']
     NCard: typeof import('naive-ui')['NCard']
-    Test01: typeof import('./src/components/Test01.vue')['default']
   }
 }
